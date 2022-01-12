@@ -26,7 +26,8 @@ null::sysinit:/bin/ln -sf /proc/self/fd/1 /dev/stdout
 null::sysinit:/bin/ln -sf /proc/self/fd/2 /dev/stderr
 ::sysinit:/bin/hostname -F /etc/hostname
 # now run any rc scripts
-::sysinit:/etc/init.d/rcS
+#::sysinit:/etc/init.d/rcS
+null::respawn:runsvdir /etc/sv
 
 # Put a getty on the serial port
 #ttyS0::respawn:/sbin/getty -L ttyS0 115200 vt100 # GENERIC_SERIAL
@@ -35,6 +36,6 @@ null::sysinit:/bin/ln -sf /proc/self/fd/2 /dev/stderr
 #::ctrlaltdel:/sbin/reboot
 
 # Stuff to do before rebooting
-::shutdown:/etc/init.d/rcK
+#::shutdown:/etc/init.d/rcK
 ::shutdown:/sbin/swapoff -a
 ::shutdown:/bin/umount -a -r
