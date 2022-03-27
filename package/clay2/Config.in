@@ -1,5 +1,5 @@
-config BR2_PACKAGE_CLAY
-        bool "CLAY Assignment"
+config BR2_PACKAGE_CLAY2
+        bool "CLAY2 Assignment"
         help
           A Task from CLAY Company
 	  https://github.com/javad123javad/em_param_server/commits/master

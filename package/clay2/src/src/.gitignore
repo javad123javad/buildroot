@@ -1,0 +1,6 @@
+autom4te.cache/*
+config.h
+config.status
+src/.deps/*
+src/.deps
+stamp-h1 
