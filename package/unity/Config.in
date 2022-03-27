@@ -1,0 +1,5 @@
+config BR2_PACKAGE_UNITY
+        bool "Unity Test Framework"
+        help
+          UNIT TESTING FOR C (ESPECIALLY EMBEDDED SOFTWARE)
+	  http://www.throwtheswitch.org/unity

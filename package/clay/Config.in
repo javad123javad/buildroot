@@ -1,0 +1,5 @@
+config BR2_PACKAGE_ALLIB
+        bool "CLAY Assignment"
+        help
+          A Task from CLAY Company
+	  https://github.com/javad123javad/em_param_server/commits/master

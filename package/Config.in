@@ -239,6 +239,7 @@ menu "Filesystem and flash utilities"
 	source "package/unionfs/Config.in"
 	source "package/xfsprogs/Config.in"
 	source "package/zfs/Config.in"
+	source "package/clay/Config.in"
 endmenu
 
 menu "Fonts, cursors, icons, sounds and themes"
@@ -1768,6 +1769,7 @@ menu "Multimedia"
 endmenu
 
 menu "Networking"
+	source "package/allib/Config.in"
 	source "package/agentpp/Config.in"
 	source "package/azmq/Config.in"
 	source "package/azure-iot-sdk-c/Config.in"

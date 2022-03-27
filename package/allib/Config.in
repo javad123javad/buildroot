@@ -1,0 +1,5 @@
+config BR2_PACKAGE_ALLIB
+        bool "ALlib"
+        help
+          A universal BSD network library for embedded systems
+	  https://github.com/javad123javad/ALlib
