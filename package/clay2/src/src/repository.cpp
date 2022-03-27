@@ -19,7 +19,7 @@ int32_t repository::open_file()
     repo_file_read = std::ifstream(repo_file_name, std::ios::in);
     if(!repo_file.is_open())
     {
-        std::clog<<"Error Opening file"<<std::endl;
+        dbg("Error Opening file\n");
         fret = -1;
     }
     repo_file.seekp(std::ios_base::beg);
@@ -63,18 +63,19 @@ int32_t repository::set_data(std::string key, std::string value, bool sync)
     fret = this->get_data(key, data, &it);
     if(-1 == fret)  // Data is not in the database, insert it
     {
-        fprintf(stderr,"Data is not in DB, put it\n");
+        dbg("Data is not in DB, put it\n");
         repo_data.insert(std::make_pair(key, value));
 
-
+        fret = 0;
     }
     else
     {
-        fprintf(stderr, "Data Already Exists. Updating...\n");
+        dbg("Data Already Exists. Updating...\n");
         repo_data.erase(it);
         repo_data.insert(std::make_pair(key, value));
-
+        fret = 0;
     }
+    
     if(sync)// Sync on disk?
     {
         this->update_file();
@@ -96,7 +97,7 @@ int32_t repository::del_data(const std::string key)
     it = repo_data.find(key);
     if( it != repo_data.end())
     {
-        fprintf(stderr,"Item %s found, gonna erase it\n", key.c_str());
+        dbg("Item %s found, gonna erase it\n", key.c_str());
         repo_data.erase(it);
 
         this->update_file();
@@ -123,7 +124,7 @@ int32_t repository::get_data(const std::string key,
         return -1;
     if(false == is_db_loaded)
     {
-        fprintf(stderr,"Load DB\n");
+        dbg("Load DB\n");
         this->load_file_data();
     }
 
@@ -132,11 +133,12 @@ int32_t repository::get_data(const std::string key,
     if( it != repo_data.end())
     {
         value = it->second;
-        fprintf(stderr,"Dump: %s-->%s\n",key.c_str(), value.c_str());
+        dbg("Dump: %s-->%s\n",key.c_str(), value.c_str());
         *oit = it;
         return 0;
     }
     else {
+        value.clear();
         return fret;
     }
 
@@ -159,7 +161,7 @@ int32_t repository::load_file_data()
         if(!key.empty() && !value.empty())
         {
             repo_data.insert(std::make_pair(key,value));
-            fprintf(stderr,"[load_file_data]: %s --> %s\n", key.c_str(), value.c_str());
+            dbg("[load_file_data]: %s --> %s\n", key.c_str(), value.c_str());
         }
     }
     this->close_file();
@@ -201,7 +203,7 @@ int32_t repository::show_data()
 {
     for(auto item:repo_data)
     {
-        fprintf(stderr," ITEM: %s ----> %s\n", item.first.c_str(), item.second.c_str());
+        std::cout<<" ITEM: "<< item.first<<"--->"<< item.second<<std::endl;
     }
 
     return 0;

@@ -5,7 +5,7 @@ AC_PREREQ([2.69])
 AC_INIT([Clay_Assignment], [1.0.1], [javad@jrahimi.ir])
 AC_CONFIG_SRCDIR([src/main.cpp])
 AC_CONFIG_HEADERS([config.h])
-AM_INIT_AUTOMAKE  
+AM_INIT_AUTOMAKE ([subdir-objects])
 AC_PROG_RANLIB
 # Checks for programs.
 AC_PROG_CXX
@@ -22,5 +22,7 @@ AC_TYPE_UINT8_T
 # Checks for library functions.
 
 AC_CONFIG_FILES([Makefile
-                 src/Makefile])
+                 src/Makefile
+                 tests/Makefile])
+
 AC_OUTPUT

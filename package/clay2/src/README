@@ -1,27 +1,58 @@
-# imp_netman
-Impeirum Drive network manager is an inteligent network manager, which constantly monitor network adapters and apply user defined shaping rules to it. 
+# CLAY Assignment
+application has the single purpose of persistently storing and retrieving key-value pairs, most commonly used to store settings. K-V pairs
+cannot be nested
+
+# Prerequisites
+This program use [ALlib](https://github.com/javad123javad/ALlib) (My personal library for BSD network stack) and [Unity](http://www.throwtheswitch.org/unity) as testing framework. 
+It's highly recommended to install `ALlib` as shared library, eventhough it's also possible to be compiled as static library as well.
+## Installing ALLib
+```shell
+$ git clone git@github.com:javad123javad/ALlib.git
+$ cd Allib
+$ mkdir build
+$ cd build
+$ cmake -DBUILD_SHARED_LIBS=ON ..
+$ make
+$ sudo make install
+```
+## Installing Unity
+```shell
+$ git clone https://github.com/ThrowTheSwitch/Unity.git
+$ cd Unity
+$ mkdir build
+$ cd build
+$ cmake ..
+$ make
+$ sudo make install
+```
+
 ## Build
 imp_netman uses autohell to build the binary output. So, the instruction is straight forward:
 ```shell
 ./autogen.sh && configure && make
 ```
-After successful compilation, the executable will be available in `src/imp_netman2`
-## Configuration File
-imp_netman needs a configuration file which describe rules per adapter. Each row in the configuration file declare a new rule for the adapter. The general structure of the configuration is as follows:
-
-    <adapter name>  port  <port name>  speed  <least guaranteed speed>  ceil  <max allowable speed>  index  <rule index number>  prio  <rule priority>
-For example:
-
-
-    idtun port 22 speed 500 ceil 1000 index 10 prio 1
-    idtun port 5000 speed 200 ceil 300 index 20 prio 1
-    idtun port 6000 speed 300 ceil 3000 index 30 prio 2
-    wg0   port 7000 speed 2500 ceil 4000 index 40 prio 1
-    wg0   port 8000 speed 2500 ceil 4000 index 50 prio 1
+Or
+```shell
+autoreconf -i && configure && make
+```
+After successful compilation, the executable will be available in `src/Clay_Assignment`
 
 ## Execute
-Simple run the `imp_Netman2` with the configuration file:
+
+The binary is in `<clay directory>/src`:
 ```shell
-./imp_netman2 ./test.conf
+$ ./src/Clay_Assignment 
+> SET LED ON
+OK
+> SET GPS ON
+OK
+> GET LED
+ON
+> DELETE LED
+OK
+> GET LED
+
+> QUIT
+BYE
 ```
 

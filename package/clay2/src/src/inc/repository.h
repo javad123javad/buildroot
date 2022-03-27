@@ -7,11 +7,16 @@
 #include <unistd.h>
 #include <fstream>
 
-typedef struct _db_map
-{
-    std::string key;
-    std::string value;
-}db_map_t;
+/* Debugging stuff */
+#define dbg(fmt, ...)                            \
+    do                                           \
+    {                                            \
+        if (_DEBUG_)                             \
+            fprintf(stderr, fmt, ##__VA_ARGS__); \
+    } while (0)
+
+#define _DEBUG_ 0
+
 /**
  * @brief The repository class, responsible for storing the key/values
  */
@@ -21,7 +26,7 @@ public: /* method */
     repository() = delete ;
     repository(std::string repo_name);
 
-    int32_t open_file();
+    int32_t open_file() ;
     int32_t close_file();
     int32_t set_data(std::string key, std::string value, bool sync = true);
     int32_t get_data(const std::string key, std::string &value, std::map<std::string, std::string>::iterator* it = nullptr);
