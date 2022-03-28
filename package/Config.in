@@ -240,7 +240,6 @@ menu "Filesystem and flash utilities"
 	source "package/unionfs/Config.in"
 	source "package/xfsprogs/Config.in"
 	source "package/zfs/Config.in"
-	source "package/clay/Config.in"
 	source "package/clay2/Config.in"
 endmenu
 
