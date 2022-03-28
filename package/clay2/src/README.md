@@ -8,7 +8,7 @@ It's highly recommended to install `ALlib` as shared library, eventhough it's al
 ## Installing ALLib
 ```shell
 $ git clone git@github.com:javad123javad/ALlib.git
-$ cd ALlib
+$ cd Allib
 $ mkdir build
 $ cd build
 $ cmake -DBUILD_SHARED_LIBS=ON ..
@@ -27,7 +27,7 @@ $ sudo make install
 ```
 
 ## Build
-imp_netman uses autohell to build the binary output. So, the instruction is straight forward:
+For this assignment Autohell build system is used to build the binary output. So, the instruction is straight forward:
 ```shell
 ./autogen.sh && configure && make
 ```
@@ -36,7 +36,25 @@ Or
 autoreconf -i && configure && make
 ```
 After successful compilation, the executable will be available in `src/Clay_Assignment`
+## Run Tests
+To run the tests, you can use `make check`
+```shell
+$ make check
+PASS: test_repo
+============================================================================
+Testsuite summary for Clay_Assignment 1.0.1
+============================================================================
+# TOTAL: 1
+# PASS:  1
+# SKIP:  0
+# XFAIL: 0
+# FAIL:  0
+# XPASS: 0
+# ERROR: 0
+============================================================================
 
+```
+Full test log is available in `tests/*.log`
 ## Execute
 
 The binary is in `<clay directory>/src`:
@@ -55,4 +73,38 @@ OK
 > QUIT
 BYE
 ```
+
+# Configure Buildroot build
+To make the embedded version of this assignment, please clone `Clay` branch from my cloned repository of `buildroot`
+```shell
+$ git clone -b Clay https://github.com/javad123javad/buildroot.git
+```
+Then load one of the configuration from `configs` directory
+```shell
+$ make qemu_arm_versatile_defconfig
+```
+Enable following option in buildroot menu:
+* Toolchain -->  Enable WCHAR support 
+* Toolchain -->  Enable C++ support
+* Target packages --> Debugging, profiling and benchmark --> Unity Test Framework
+* Target packages --> Filesystem and flash utilities --> CLAY2 Assignment
+* Target packages --> Libraries --> Networking --> ALlib
+Then make with `make` command
+To test the application:
+```shell
+$ cd output/images
+$ ./start-qemu.sh
+Welcome to Buildroot
+buildroot login: root
+# Clay_Assignment 
+Sock Open: Success
+> SET LED ON
+OK
+> GET LED
+ON
+> QUIT
+BYE
+# 
+```
+
 

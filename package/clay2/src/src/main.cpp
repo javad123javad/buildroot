@@ -14,12 +14,13 @@
 #include <thread>
 #include <mutex>
 #include <signal.h>
+#include <memory>
 
 using namespace std;
 
 #define AL_UNIX_FILE "/tmp/alunix.sock"
 #define REPO_PATH "/tmp/clay_repo.txt"
-static repository *g_repo;
+static shared_ptr<repository> g_repo;
 static mutex g_repo_mutex;
 
 /**
@@ -30,7 +31,7 @@ static mutex g_repo_mutex;
  * @param out_value The result of the command.
  * @return int32_t 0 on success, negative values on failure
  */
-int32_t exec_cmd(repository *repo, std::string command, std::string &out_value)
+int32_t exec_cmd(shared_ptr<repository> repo, std::string command, std::string &out_value)
 {
     int fret = 0;
     string cmd, key, value;
@@ -132,19 +133,20 @@ void h_signal(int32_t signo)
     if (SIGINT == signo)
     {
         g_repo->close_file();
-        delete g_repo;
         exit(0);
     }
 }
 int main()
 {
     int32_t fret = 0;
-    g_repo = new repository(REPO_PATH);
+    g_repo = make_shared<repository>(REPO_PATH);
     string line;
     string value;
+    
     /* Create a thread to handle the UNIX IPC server */
     std::thread ipc_thr(thr_cb);
     ipc_thr.detach();
+
     /* Handle kill signal */
     signal(SIGINT, h_signal);
 
@@ -163,5 +165,5 @@ int main()
     }
 
     g_repo->close_file();
-    delete g_repo;
-}
+    return 0;
+    }
