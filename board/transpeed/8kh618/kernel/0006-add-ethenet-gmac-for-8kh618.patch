@@ -1,0 +1,96 @@
+From 8dc14c36b0bb3535634173e8650d024f1bd72d76 Mon Sep 17 00:00:00 2001
+From: Javad Rahimipetroudi <javad.rahimipetroudi@mind.be>
+Date: Sun, 8 Dec 2024 12:15:49 +0100
+Subject: [PATCH 6/6] add ethenet gmac for 8kh618
+
+Signed-off-by: Javad Rahimipetroudi <javad.rahimipetroudi@mind.be>
+---
+ .../arm64/boot/dts/allwinner/sun50i-h616.dtsi | 26 +++++++++++++++++++
+ .../sun50i-h618-transpeed-8k618-t.dts         | 23 ++++++++++++++++
+ 2 files changed, 49 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h616.dtsi b/arch/arm64/boot/dts/allwinner/sun50i-h616.dtsi
+index e88c1fbac6ac..a44d1eff7a1f 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h616.dtsi
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h616.dtsi
+@@ -289,6 +289,13 @@ mmc2_pins: mmc2-pins {
+ 				bias-pull-up;
+ 			};
+ 
++			rmii_pins: rmii-pins {
++				pins = "PA0", "PA1", "PA2", "PA3", "PA4",
++					"PA5", "PA6", "PA7", "PA8", "PA9";
++				function = "emac1";
++				drive-strength = <40>;
++                       };
++
+ 			/omit-if-no-ref/
+ 			spi0_pins: spi0-pins {
+ 				pins = "PC0", "PC2", "PC4";
+@@ -630,6 +637,25 @@ mdio0: mdio {
+ 			};
+ 		};
+ 
++		emac1: ethernet@5030000 {
++			compatible = "allwinner,sun50i-h616-emac";
++			syscon = <&syscon 1>;
++			reg = <0x05030000 0x10000>;
++			interrupts = <GIC_SPI 15 IRQ_TYPE_LEVEL_HIGH>;
++			interrupt-names = "macirq";
++			resets = <&ccu RST_BUS_EMAC1>;
++			reset-names = "stmmaceth";
++			clocks = <&ccu CLK_BUS_EMAC1>;
++			clock-names = "stmmaceth";
++			status = "disabled";
++
++			mdio1: mdio {
++				compatible = "snps,dwmac-mdio";
++				#address-cells = <1>;
++				#size-cells = <0>;
++			};
++		};
++
+ 		spdif: spdif@5093000 {
+ 			compatible = "allwinner,sun50i-h616-spdif";
+ 			reg = <0x05093000 0x400>;
+diff --git a/arch/arm64/boot/dts/allwinner/sun50i-h618-transpeed-8k618-t.dts b/arch/arm64/boot/dts/allwinner/sun50i-h618-transpeed-8k618-t.dts
+index d6631bfe629f..6afdbb0d3a84 100644
+--- a/arch/arm64/boot/dts/allwinner/sun50i-h618-transpeed-8k618-t.dts
++++ b/arch/arm64/boot/dts/allwinner/sun50i-h618-transpeed-8k618-t.dts
+@@ -16,6 +16,7 @@ / {
+ 	compatible = "transpeed,8k618-t", "allwinner,sun50i-h618";
+ 
+ 	aliases {
++		ethernet0 = &emac1;
+ 		ethernet1 = &sdio_wifi;
+ 		serial0 = &uart0;
+ 	};
+@@ -187,3 +188,25 @@ &usbotg {
+ &usbphy {
+ 	status = "okay";
+ };
++
++&emac1 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&rmii_pins>;
++	phy-mode = "rmii";
++	phy-handle = <&rmii_phy>;
++	phy-supply = <&reg_aldo1>;
++	allwinner,rx-delay-ps = <3100>;
++	allwinner,tx-delay-ps = <700>;
++	status = "okay";
++};
++
++&i2c3 {
++	status = "okay";
++};
++
++&mdio1 {
++	rmii_phy: ethernet-phy@0 {
++		compatible = "ethernet-phy-ieee802.3-c22";
++		reg = <0>;
++	};
++};
+-- 
+2.47.1
+

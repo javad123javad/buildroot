@@ -1,0 +1,33 @@
+From 3e46318210fc3c96e152a0f1add073812c729d57 Mon Sep 17 00:00:00 2001
+From: Javad Rahimipetroudi <javad.rahimipetroudi@mind.be>
+Date: Tue, 10 Dec 2024 16:58:14 +0100
+Subject: [PATCH 13/14] clk-sunxi-ng-ccu-sun6i-rtc-fix-32k-clk
+
+Signed-off-by: Javad Rahimipetroudi <javad.rahimipetroudi@mind.be>
+---
+ drivers/clk/sunxi-ng/ccu-sun6i-rtc.c | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/drivers/clk/sunxi-ng/ccu-sun6i-rtc.c b/drivers/clk/sunxi-ng/ccu-sun6i-rtc.c
+index 87e23d16ed0f..20a8b97858db 100644
+--- a/drivers/clk/sunxi-ng/ccu-sun6i-rtc.c
++++ b/drivers/clk/sunxi-ng/ccu-sun6i-rtc.c
+@@ -271,13 +271,13 @@ static struct ccu_mux osc32k_fanout_clk = {
+ };
+ 
+ static struct ccu_common *sun6i_rtc_ccu_clks[] = {
++	&osc32k_clk.common,
++	&osc32k_fanout_clk.common,
+ 	&iosc_clk,
+ 	&iosc_32k_clk,
+ 	&ext_osc32k_gate_clk.common,
+-	&osc32k_clk.common,
+ 	&osc24M_32k_clk.common,
+ 	&rtc_32k_clk.common,
+-	&osc32k_fanout_clk.common,
+ };
+ 
+ static struct clk_hw_onecell_data sun6i_rtc_ccu_hw_clks = {
+-- 
+2.47.1
+

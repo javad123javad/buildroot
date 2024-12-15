@@ -1,0 +1,25 @@
+From 93c91db8b35b0fc13b03d606bdfd361909ff9876 Mon Sep 17 00:00:00 2001
+From: Javad Rahimipetroudi <javad.rahimipetroudi@mind.be>
+Date: Tue, 10 Dec 2024 16:51:30 +0100
+Subject: [PATCH 11/14] media-cedrus-Don-t-CPU-map-source-buffers
+
+Signed-off-by: Javad Rahimipetroudi <javad.rahimipetroudi@mind.be>
+---
+ drivers/staging/media/sunxi/cedrus/cedrus_video.c | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/drivers/staging/media/sunxi/cedrus/cedrus_video.c b/drivers/staging/media/sunxi/cedrus/cedrus_video.c
+index b00feaf4072c..f4500731c065 100644
+--- a/drivers/staging/media/sunxi/cedrus/cedrus_video.c
++++ b/drivers/staging/media/sunxi/cedrus/cedrus_video.c
+@@ -582,6 +582,7 @@ int cedrus_queue_init(void *priv, struct vb2_queue *src_vq,
+ 
+ 	src_vq->type = V4L2_BUF_TYPE_VIDEO_OUTPUT;
+ 	src_vq->io_modes = VB2_MMAP | VB2_DMABUF;
++	src_vq->dma_attrs = DMA_ATTR_NO_KERNEL_MAPPING;
+ 	src_vq->drv_priv = ctx;
+ 	src_vq->buf_struct_size = sizeof(struct cedrus_buffer);
+ 	src_vq->ops = &cedrus_qops;
+-- 
+2.47.1
+

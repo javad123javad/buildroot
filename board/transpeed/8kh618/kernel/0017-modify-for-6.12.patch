@@ -1,0 +1,501 @@
+From bab9080afa7be15a4f8345a8e855d6ad5297dc73 Mon Sep 17 00:00:00 2001
+From: Javad Rahimipetroudi <javad.rahimipetroudi@mind.be>
+Date: Thu, 12 Dec 2024 16:23:42 +0100
+Subject: [PATCH 16/16] modify for 6.12
+
+Signed-off-by: Javad Rahimipetroudi <javad.rahimipetroudi@mind.be>
+---
+ drivers/clk/clk-gate.c                 |  60 +++++++-
+ drivers/mfd/Kconfig                    |  12 ++
+ drivers/mfd/Makefile                   |   1 +
+ drivers/mfd/ac200.c                    | 190 +++++++++++++++++++++++++
+ drivers/phy/allwinner/ac200-ephy-ctl.c |   6 +-
+ include/linux/clk-provider.h           |  36 ++++-
+ 6 files changed, 294 insertions(+), 11 deletions(-)
+ create mode 100644 drivers/mfd/ac200.c
+
+diff --git a/drivers/clk/clk-gate.c b/drivers/clk/clk-gate.c
+index 68e585a02fd9..4b18d31592c8 100644
+--- a/drivers/clk/clk-gate.c
++++ b/drivers/clk/clk-gate.c
+@@ -9,6 +9,7 @@
+ #include <linux/clk-provider.h>
+ #include <linux/device.h>
+ #include <linux/module.h>
++#include <linux/regmap.h>
+ #include <linux/slab.h>
+ #include <linux/io.h>
+ #include <linux/err.h>
+@@ -124,11 +125,42 @@ const struct clk_ops clk_gate_ops = {
+ };
+ EXPORT_SYMBOL_GPL(clk_gate_ops);
+ 
++static int clk_gate_regmap_setclrbit(struct clk_hw *hw, bool enable)
++{
++	struct clk_gate *gate = to_clk_gate(hw);
++	bool set = gate->flags & CLK_GATE_SET_TO_DISABLE;
++
++	set ^= enable;
++
++	if (set)
++		return regmap_set_bits(gate->regmap, gate->regmap_offs,
++				       BIT(gate->bit_idx));
++	else
++		return regmap_clear_bits(gate->regmap, gate->regmap_offs,
++					 BIT(gate->bit_idx));
++}
++
++static int clk_gate_regmap_prepare(struct clk_hw *hw)
++{
++	return clk_gate_regmap_setclrbit(hw, true);
++}
++
++static void clk_gate_regmap_unprepare(struct clk_hw *hw)
++{
++	clk_gate_regmap_setclrbit(hw, false);
++}
++
++const struct clk_ops clk_gate_regmap_ops = {
++	.prepare = clk_gate_regmap_prepare,
++	.unprepare = clk_gate_regmap_unprepare,
++};
++
+ struct clk_hw *__clk_hw_register_gate(struct device *dev,
+ 		struct device_node *np, const char *name,
+ 		const char *parent_name, const struct clk_hw *parent_hw,
+ 		const struct clk_parent_data *parent_data,
+ 		unsigned long flags,
++		struct regmap *regmap, unsigned int regmap_offs,
+ 		void __iomem *reg, u8 bit_idx,
+ 		u8 clk_gate_flags, spinlock_t *lock)
+ {
+@@ -150,7 +182,10 @@ struct clk_hw *__clk_hw_register_gate(struct device *dev,
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	init.name = name;
+-	init.ops = &clk_gate_ops;
++	if (regmap)
++		init.ops = &clk_gate_regmap_ops;
++	else
++		init.ops = &clk_gate_ops;
+ 	init.flags = flags;
+ 	init.parent_names = parent_name ? &parent_name : NULL;
+ 	init.parent_hws = parent_hw ? &parent_hw : NULL;
+@@ -162,6 +197,8 @@ struct clk_hw *__clk_hw_register_gate(struct device *dev,
+ 
+ 	/* struct clk_gate assignments */
+ 	gate->reg = reg;
++	gate->regmap = regmap;
++	gate->regmap_offs = regmap_offs;
+ 	gate->bit_idx = bit_idx;
+ 	gate->flags = clk_gate_flags;
+ 	gate->lock = lock;
+@@ -197,6 +234,22 @@ struct clk *clk_register_gate(struct device *dev, const char *name,
+ }
+ EXPORT_SYMBOL_GPL(clk_register_gate);
+ 
++struct clk *clk_register_regmap_gate(struct device *dev, const char *name,
++		const char *parent_name, unsigned long flags,
++		struct regmap *regmap, unsigned int regmap_offs,
++		u8 bit_idx, u8 clk_gate_flags)
++{
++	struct clk_hw *hw;
++
++	hw = clk_hw_register_regmap_gate(dev, name, parent_name, flags, regmap,
++					 regmap_offs, bit_idx, clk_gate_flags);
++
++	if (IS_ERR(hw))
++		return ERR_CAST(hw);
++	return hw->clk;
++}
++EXPORT_SYMBOL_GPL(clk_register_regmap_gate);
++
+ void clk_unregister_gate(struct clk *clk)
+ {
+ 	struct clk_gate *gate;
+@@ -234,6 +287,7 @@ struct clk_hw *__devm_clk_hw_register_gate(struct device *dev,
+ 		const char *parent_name, const struct clk_hw *parent_hw,
+ 		const struct clk_parent_data *parent_data,
+ 		unsigned long flags,
++		struct regmap *regmap, unsigned int regmap_offs,
+ 		void __iomem *reg, u8 bit_idx,
+ 		u8 clk_gate_flags, spinlock_t *lock)
+ {
+@@ -244,8 +298,8 @@ struct clk_hw *__devm_clk_hw_register_gate(struct device *dev,
+ 		return ERR_PTR(-ENOMEM);
+ 
+ 	hw = __clk_hw_register_gate(dev, np, name, parent_name, parent_hw,
+-				    parent_data, flags, reg, bit_idx,
+-				    clk_gate_flags, lock);
++				    parent_data, flags, regmap, regmap_offs,
++				    reg, bit_idx, clk_gate_flags, lock);
+ 
+ 	if (!IS_ERR(hw)) {
+ 		*ptr = hw;
+diff --git a/drivers/mfd/Kconfig b/drivers/mfd/Kconfig
+index 8b028102874b..9e089fdb834e 100644
+--- a/drivers/mfd/Kconfig
++++ b/drivers/mfd/Kconfig
+@@ -213,6 +213,18 @@ config MFD_AC200_SUNXI
+ 	  This driver include only the core APIs. You have to select individual
+ 	  components like Ethernet PHY or RTC under the corresponding menus.
+ 
++config MFD_AC200
++	tristate "X-Powers AC200"
++	select MFD_CORE
++	select REGMAP_I2C
++	depends on COMMON_CLK
++	depends on I2C
++	depends on OF
++	help
++	  If you say Y here you get support for the X-Powers AC200 IC.
++	  This driver include only the core APIs. You have to select individual
++	  components like Ethernet PHY or codec under the corresponding menus.
++
+ config MFD_AXP20X
+ 	tristate
+ 	select MFD_CORE
+diff --git a/drivers/mfd/Makefile b/drivers/mfd/Makefile
+index 036483d6230b..cac76438f3d0 100644
+--- a/drivers/mfd/Makefile
++++ b/drivers/mfd/Makefile
+@@ -146,6 +146,7 @@ obj-$(CONFIG_MFD_DA9052_I2C)	+= da9052-i2c.o
+ 
+ obj-$(CONFIG_MFD_AC100)		+= ac100.o
+ obj-$(CONFIG_MFD_AC200_SUNXI)   += sunxi-ac200.o
++obj-$(CONFIG_MFD_AC200)         += ac200.o
+ obj-$(CONFIG_MFD_AXP20X)	+= axp20x.o
+ obj-$(CONFIG_MFD_AXP20X_I2C)	+= axp20x-i2c.o
+ obj-$(CONFIG_MFD_AXP20X_RSB)	+= axp20x-rsb.o
+diff --git a/drivers/mfd/ac200.c b/drivers/mfd/ac200.c
+new file mode 100644
+index 000000000000..ad28c380c880
+--- /dev/null
++++ b/drivers/mfd/ac200.c
+@@ -0,0 +1,190 @@
++// SPDX-License-Identifier: GPL-2.0-only
++/*
++ * MFD core driver for X-Powers' AC200 IC
++ *
++ * The AC200 is a chip which is co-packaged with Allwinner H6 SoC and
++ * includes analog audio codec, analog TV encoder, ethernet PHY, eFuse
++ * and RTC.
++ *
++ * Copyright (c) 2019 Jernej Skrabec <jernej.skrabec@gmail.com>
++ *
++ * Based on AC100 driver with following copyrights:
++ * Copyright (2016) Chen-Yu Tsai
++ */
++
++#include <linux/clk.h>
++#include <linux/delay.h>
++#include <linux/i2c.h>
++#include <linux/kernel.h>
++#include <linux/mfd/core.h>
++#include <linux/module.h>
++#include <linux/nvmem-consumer.h>
++#include <linux/of.h>
++#include <linux/regmap.h>
++
++struct ac200_dev {
++	struct clk	*clk;
++	struct regmap	*regmap;
++};
++
++#define AC200_SYS_CONTROL	0x0002
++#define AC200_SYS_BG_CTL	0x0050
++
++/* interface register (can be accessed from any page) */
++#define AC200_TWI_REG_ADDR_H	0xFE
++
++#define AC200_MAX_REG		0xA1F2
++
++static const struct regmap_range_cfg ac200_range_cfg[] = {
++	{
++		.range_max = AC200_MAX_REG,
++		.selector_reg = AC200_TWI_REG_ADDR_H,
++		.selector_mask = 0xff,
++		.selector_shift = 0,
++		.window_start = 0,
++		.window_len = 256,
++	}
++};
++
++static const struct regmap_config ac200_regmap_config = {
++	.name		= "AC200",
++	.reg_bits	= 8,
++	.reg_stride	= 2,
++	.val_bits	= 16,
++	.ranges		= ac200_range_cfg,
++	.num_ranges	= ARRAY_SIZE(ac200_range_cfg),
++	.max_register	= AC200_MAX_REG,
++};
++
++static struct mfd_cell ac200_cells[] = {
++	{
++		.name		= "ac200-codec",
++		.of_compatible	= "x-powers,ac200-codec",
++	}, {
++		.name		= "ac200-ephy-ctl",
++		.of_compatible	= "x-powers,ac200-ephy-ctl",
++	},
++};
++
++static int ac200_i2c_probe(struct i2c_client *i2c)
++{
++	struct device *dev = &i2c->dev;
++	struct nvmem_cell *bgcell;
++	struct ac200_dev *ac200;
++	u16 *bgdata, bgval;
++	size_t bglen;
++	int ret;
++
++	ac200 = devm_kzalloc(dev, sizeof(*ac200), GFP_KERNEL);
++	if (!ac200)
++		return -ENOMEM;
++
++	i2c_set_clientdata(i2c, ac200);
++
++	ac200->clk = devm_clk_get(dev, NULL);
++	if (IS_ERR(ac200->clk))
++		return dev_err_probe(dev, PTR_ERR(ac200->clk),
++				     "Can't obtain the clock\n");
++
++	ac200->regmap = devm_regmap_init_i2c(i2c, &ac200_regmap_config);
++	if (IS_ERR(ac200->regmap)) {
++		ret = PTR_ERR(ac200->regmap);
++		dev_err(dev, "Regmap init failed: %d\n", ret);
++		return ret;
++	}
++
++	bgcell = devm_nvmem_cell_get(dev, "bandgap");
++	if (IS_ERR(bgcell))
++		return dev_err_probe(dev, PTR_ERR(bgcell),
++				     "Unable to find bandgap data!\n");
++
++	bgdata = nvmem_cell_read(bgcell, &bglen);
++	if (IS_ERR(bgdata)) {
++		dev_err(dev, "Unable to read bandgap data!\n");
++		return PTR_ERR(bgdata);
++	}
++
++	if (bglen != 2) {
++		dev_err(dev, "Invalid nvmem bandgap length!\n");
++		kfree(bgdata);
++		return -EINVAL;
++	}
++
++	bgval = *bgdata;
++	kfree(bgdata);
++
++	ret = clk_prepare_enable(ac200->clk);
++	if (ret)
++		return ret;
++
++	/*
++	 * There is no documentation on how long we have to wait before
++	 * executing first operation. Vendor driver sleeps for 40 ms.
++	 */
++	msleep(40);
++
++	ret = regmap_write(ac200->regmap, AC200_SYS_CONTROL, 0);
++	if (ret)
++		goto err;
++
++	ret = regmap_write(ac200->regmap, AC200_SYS_CONTROL, 1);
++	if (ret)
++		goto err;
++
++	if (bgval) {
++		/* bandgap register is not documented */
++		ret = regmap_write(ac200->regmap, AC200_SYS_BG_CTL,
++				   0x8280 | bgval);
++		if (ret)
++			goto err;
++	}
++
++	ret = devm_mfd_add_devices(dev, PLATFORM_DEVID_NONE, ac200_cells,
++				   ARRAY_SIZE(ac200_cells), NULL, 0, NULL);
++	if (ret) {
++		dev_err(dev, "Failed to add MFD devices: %d\n", ret);
++		goto err;
++	}
++
++	return 0;
++
++err:
++	clk_disable_unprepare(ac200->clk);
++	return ret;
++}
++
++static void ac200_i2c_remove(struct i2c_client *i2c)
++{
++	struct ac200_dev *ac200 = i2c_get_clientdata(i2c);
++
++	regmap_write(ac200->regmap, AC200_SYS_CONTROL, 0);
++
++	clk_disable_unprepare(ac200->clk);
++}
++
++static const struct i2c_device_id ac200_ids[] = {
++	{ "ac200", },
++	{ }
++};
++MODULE_DEVICE_TABLE(i2c, ac200_ids);
++
++static const struct of_device_id ac200_of_match[] = {
++	{ .compatible = "x-powers,ac200" },
++	{ }
++};
++MODULE_DEVICE_TABLE(of, ac200_of_match);
++
++static struct i2c_driver ac200_i2c_driver = {
++	.driver = {
++		.name	= "ac200",
++		.of_match_table	= of_match_ptr(ac200_of_match),
++	},
++	.probe	= ac200_i2c_probe,
++	.remove = ac200_i2c_remove,
++	.id_table = ac200_ids,
++};
++module_i2c_driver(ac200_i2c_driver);
++
++MODULE_DESCRIPTION("MFD core driver for AC200");
++MODULE_AUTHOR("Jernej Skrabec <jernej.skrabec@gmail.com>");
++MODULE_LICENSE("GPL v2");
+diff --git a/drivers/phy/allwinner/ac200-ephy-ctl.c b/drivers/phy/allwinner/ac200-ephy-ctl.c
+index 8efeaf18e42c..ddb4feeb9465 100644
+--- a/drivers/phy/allwinner/ac200-ephy-ctl.c
++++ b/drivers/phy/allwinner/ac200-ephy-ctl.c
+@@ -28,7 +28,7 @@
+ #include <linux/phy.h>
+ #include <linux/platform_device.h>
+ #include <linux/reset-controller.h>
+-
++#include <linux/regmap.h>
+ /* macros for system ephy control 0 register */
+ #define AC200_SYS_EPHY_CTL0		0x0014
+ #define AC200_EPHY_RESET_INVALID	BIT(0)
+@@ -271,13 +271,11 @@ static int ac200_ephy_ctl_probe(struct platform_device *pdev)
+ 	return ret;
+ }
+ 
+-static int ac200_ephy_ctl_remove(struct platform_device *pdev)
++static void ac200_ephy_ctl_remove(struct platform_device *pdev)
+ {
+ 	struct ac200_ephy_ctl_dev *priv = platform_get_drvdata(pdev);
+ 
+ 	ac200_ephy_ctl_disable(priv);
+-
+-	return 0;
+ }
+ 
+ static const struct of_device_id ac200_ephy_ctl_match[] = {
+diff --git a/include/linux/clk-provider.h b/include/linux/clk-provider.h
+index 7e43caabb54b..6c457b4a98bb 100644
+--- a/include/linux/clk-provider.h
++++ b/include/linux/clk-provider.h
+@@ -8,6 +8,7 @@
+ 
+ #include <linux/of.h>
+ #include <linux/of_clk.h>
++#include <linux/regmap.h>
+ 
+ /*
+  * flags used across common struct clk.  these flags should only affect the
+@@ -526,6 +527,8 @@ void of_fixed_clk_setup(struct device_node *np);
+ struct clk_gate {
+ 	struct clk_hw hw;
+ 	void __iomem	*reg;
++	struct regmap	*regmap;
++	unsigned int	regmap_offs;
+ 	u8		bit_idx;
+ 	u8		flags;
+ 	spinlock_t	*lock;
+@@ -543,6 +546,7 @@ struct clk_hw *__clk_hw_register_gate(struct device *dev,
+ 		const char *parent_name, const struct clk_hw *parent_hw,
+ 		const struct clk_parent_data *parent_data,
+ 		unsigned long flags,
++		struct regmap *regmap, unsigned int regmap_offs,
+ 		void __iomem *reg, u8 bit_idx,
+ 		u8 clk_gate_flags, spinlock_t *lock);
+ struct clk_hw *__devm_clk_hw_register_gate(struct device *dev,
+@@ -550,12 +554,17 @@ struct clk_hw *__devm_clk_hw_register_gate(struct device *dev,
+ 		const char *parent_name, const struct clk_hw *parent_hw,
+ 		const struct clk_parent_data *parent_data,
+ 		unsigned long flags,
++		struct regmap *regmap, unsigned int regmap_offs,
+ 		void __iomem *reg, u8 bit_idx,
+ 		u8 clk_gate_flags, spinlock_t *lock);
+ struct clk *clk_register_gate(struct device *dev, const char *name,
+ 		const char *parent_name, unsigned long flags,
+ 		void __iomem *reg, u8 bit_idx,
+ 		u8 clk_gate_flags, spinlock_t *lock);
++struct clk *clk_register_regmap_gate(struct device *dev, const char *name,
++		const char *parent_name, unsigned long flags,
++		struct regmap *regmap, unsigned int regmap_offs,
++		u8 bit_idx, u8 clk_gate_flags);
+ /**
+  * clk_hw_register_gate - register a gate clock with the clock framework
+  * @dev: device that is registering this clock
+@@ -570,8 +579,14 @@ struct clk *clk_register_gate(struct device *dev, const char *name,
+ #define clk_hw_register_gate(dev, name, parent_name, flags, reg, bit_idx,     \
+ 			     clk_gate_flags, lock)			      \
+ 	__clk_hw_register_gate((dev), NULL, (name), (parent_name), NULL,      \
+-			       NULL, (flags), (reg), (bit_idx),		      \
++			       NULL, (flags), NULL, 0, (reg), (bit_idx),      \
+ 			       (clk_gate_flags), (lock))
++
++#define clk_hw_register_regmap_gate(dev, name, parent_name, flags, regmap,    \
++				    regmap_offs, bit_idx, clk_gate_flags)     \
++	__clk_hw_register_gate((dev), NULL, (name), (parent_name), NULL,      \
++			       NULL, (flags), regmap, regmap_offs, NULL,      \
++			       (bit_idx), (clk_gate_flags), NULL)
+ /**
+  * clk_hw_register_gate_parent_hw - register a gate clock with the clock
+  * framework
+@@ -587,8 +602,15 @@ struct clk *clk_register_gate(struct device *dev, const char *name,
+ #define clk_hw_register_gate_parent_hw(dev, name, parent_hw, flags, reg,      \
+ 				       bit_idx, clk_gate_flags, lock)	      \
+ 	__clk_hw_register_gate((dev), NULL, (name), NULL, (parent_hw),        \
+-			       NULL, (flags), (reg), (bit_idx),		      \
++			       NULL, (flags), NULL, 0, (reg), (bit_idx),      \
+ 			       (clk_gate_flags), (lock))
++
++#define clk_hw_register_regmap_gate_parent_hw(dev, name, parent_hw, flags,    \
++					      regmap, regmap_offs, bit_idx,   \
++					      clk_gate_flags)		      \
++	__clk_hw_register_gate((dev), NULL, (name), NULL, (parent_hw),        \
++			       NULL, (flags), regmap, regmap_offs, NULL,      \
++			       (bit_idx), (clk_gate_flags), NULL)
+ /**
+  * clk_hw_register_gate_parent_data - register a gate clock with the clock
+  * framework
+@@ -604,7 +626,7 @@ struct clk *clk_register_gate(struct device *dev, const char *name,
+ #define clk_hw_register_gate_parent_data(dev, name, parent_data, flags, reg,  \
+ 				       bit_idx, clk_gate_flags, lock)	      \
+ 	__clk_hw_register_gate((dev), NULL, (name), NULL, NULL, (parent_data), \
+-			       (flags), (reg), (bit_idx),		      \
++			       (flags), NULL, 0, (reg), (bit_idx),	      \
+ 			       (clk_gate_flags), (lock))
+ /**
+  * devm_clk_hw_register_gate - register a gate clock with the clock framework
+@@ -620,8 +642,14 @@ struct clk *clk_register_gate(struct device *dev, const char *name,
+ #define devm_clk_hw_register_gate(dev, name, parent_name, flags, reg, bit_idx,\
+ 				  clk_gate_flags, lock)			      \
+ 	__devm_clk_hw_register_gate((dev), NULL, (name), (parent_name), NULL, \
+-			       NULL, (flags), (reg), (bit_idx),		      \
++			       NULL, (flags), NULL, 0, (reg), (bit_idx),      \
+ 			       (clk_gate_flags), (lock))
++#define devm_clk_hw_register_regmap_gate(dev, name, parent_name, flags,	      \
++					 regmap, regmap_offs, bit_idx,	      \
++					 clk_gate_flags)		      \
++	__devm_clk_hw_register_gate((dev), NULL, (name), (parent_name), NULL, \
++			       NULL, (flags), (regmap), (regmap_offs), NULL,  \
++			       (bit_idx), (clk_gate_flags), NULL)
+ /**
+  * devm_clk_hw_register_gate_parent_data - register a gate clock with the
+  * clock framework
+-- 
+2.47.1
+
